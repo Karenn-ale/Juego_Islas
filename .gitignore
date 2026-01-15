@@ -29,5 +29,12 @@ Thumbs.db
 *.user
 *.suo
 
-# Si quieres incluir la carpeta output con fuentes, comenta la siguiente línea
-output/
+# Ignorar artefactos de build en `output/`, pero permitir fuentes y headers
+# Ignorar ejecutables y binarios dentro de output
+output/*.exe
+output/bin/
+output/obj/
+# No ignorar los directorios con código fuente o include
+!output/src/
+!output/include/
+!output/assets/
