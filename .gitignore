@@ -1,0 +1,33 @@
+# Archivos objeto y binarios
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.out
+
+# Directorios de build
+/build/
+/bin/
+/obj/
+
+# Archivos de editor / sistema
+.vscode/
+Thumbs.db
+*.log
+*.tmp
+*.bak
+
+# Archivos generados por compiladores y herramientas
+*.dSYM/
+
+# Archivos de dependencias y empaquetado
+*.a
+*.lib
+
+# Ignorar archivos temporales de Visual Studio
+*.user
+*.suo
+
+# Si quieres incluir la carpeta output con fuentes, comenta la siguiente línea
+output/
