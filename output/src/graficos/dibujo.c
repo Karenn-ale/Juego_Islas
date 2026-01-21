@@ -10,8 +10,9 @@ HBITMAP cargarBitmap(const char* ruta) {
     if(!h) {
         h = (HBITMAP)LoadImage(NULL, ruta, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
         if(!h) { 
-            printf("\nERROR CRITICO: No encuentro %s. Presiona ENTER...", ruta);
-            getchar(); exit(1); 
+            char msg[256]; sprintf(msg, "ERROR CRITICO: No encuentro %s", ruta);
+            MessageBox(NULL, msg, "Error Dibujo", MB_ICONERROR);
+            exit(1); 
         }
     }
     // Lógica específica del juego original para detectar dimensiones del mapa 1

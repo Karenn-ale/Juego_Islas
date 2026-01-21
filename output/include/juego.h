@@ -30,6 +30,9 @@
 #define O_ITEM_ORO     19 // Nuevo objeto
 #define O_CHOZA3       20 // Nuevo (Isla 4)
 #define O_ARBOL10      21 // Nuevo (Isla 4)
+#define O_ENTRADA_CUEVA 22 // Entrada a la Cueva (Isla 5)
+#define O_ORO_GRANDE    23 // Tesoro Grande (Cueva)
+#define O_CALAVERA      24 // Calavera Dragon (Cueva)
 
 // --- IDENTIFICADORES DE ENEMIGOS ---
 #define ENE_ESTANDAR 0
@@ -109,6 +112,11 @@ extern int jugOro;
 extern int jugMadera;
 extern int jugComida;
 
+// PANTALLA
+extern int pantallaAnchoPx;
+extern int pantallaAltoPx;
+extern HWND hwndGlobal;
+
 // Tropas
 extern int tropaGuerrero;
 extern int tropaArquero;
@@ -151,6 +159,10 @@ extern HBITMAP hMapaBatalla;
 extern HBITMAP hMapaBatalla2; 
 extern HBITMAP hMapaBatalla3; 
 
+// CUEVA
+extern HBITMAP hMapaCueva;
+extern HBITMAP hMapaCuevaMem; 
+
 // ENEMIGOS
 extern HBITMAP hEnemigoLobo;
 extern HBITMAP hEnemigoCiervo;
@@ -168,6 +180,8 @@ extern HBITMAP hChispa1;
 extern HBITMAP hChispa2; 
 
 extern HBITMAP hObjItemOro; // Nuevo sprite 
+extern HBITMAP hObjOroGrande; // Nuevo asset oro2
+extern HBITMAP hObjCalavera;  // Nuevo asset calavera 
 
 extern HBITMAP hBtnAtacar1, hBtnHuir1, hBtnCurar1;
 extern HBITMAP hBtnAtacar2, hBtnHuir2, hBtnCurar2;
@@ -188,5 +202,39 @@ void inicializarRecursos();
 void intentarRecolectar(int jugadorX, int jugadorY);
 void actualizarRespawn();
 void crearMoneda(int x, int y, int valor); // Nueva funcion
+
+// --- ALDEANOS ---
+#define MAX_ALDEANOS 50
+// Estados Aldeano
+#define A_IDLE 0
+#define A_MOVIENDO 1
+#define A_RECOLECTANDO 2
+#define A_RETORNANDO 3 // (Opcional si queremos que vuelvan al cuartel)
+
+typedef struct {
+    int active;
+    float x, y; // Float para movimiento suave
+    int estado;
+    int targetId; // Indice del objeto recurso (arbol/roca/animal)
+    int timer;    // Tiempo para recolectar
+    int tipoRecurso; // 0=Madera, 1=Comida, 2=Oro
+    int direccion; // 0=Abajo, 1=Arriba, 2=Derecha, 3=Izquierda
+    int frame;     // 0 o 1 (Caminando)
+} Aldeano;
+
+extern Aldeano aldeanos[MAX_ALDEANOS];
+extern int totalAldeanos;
+
+// Recursos Graficos Aldeano
+extern HBITMAP hAldeanoFrente[2];
+extern HBITMAP hAldeanoAtras[2];
+extern HBITMAP hAldeanoLado[2];    // Izq
+extern HBITMAP hAldeanoDerecha[2]; // Der
+
+// FUNCIONES ALDEANO
+void inicializarAldeanos();
+void actualizarAldeanos();
+void dibujarAldeanos(HDC hdc, int camX, int camY, int zoom);
+void comprarAldeano();
 
 #endif

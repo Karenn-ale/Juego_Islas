@@ -19,12 +19,12 @@ static int botonPresionado = 0;
 static int mouseFuePresionado = 0; 
 char mensajeBatalla[100] = "¡Un Enemigo Salvaje aparecio!";
 
-#define BTN_Y 800
-#define BTN_W 400
-#define BTN_H 250
-#define BTN1_X 100 
-#define BTN2_X 700 
-#define BTN3_X 1380 
+#define BTN_Y 820
+#define BTN_W 300
+#define BTN_H 220
+#define BTN1_X 255 
+#define BTN2_X 810 
+#define BTN3_X 1365 
 
 #define VELOCIDAD_DASH 150 
 #define DISTANCIA_IMPACTO 850 
@@ -213,17 +213,21 @@ void procesarBatalla() {
 
     if (faseBatalla == 0) { 
         int clicIzquierdo = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-        POINT p; GetCursorPos(&p); ScreenToClient(GetConsoleWindow(), &p);
-        RECT r; GetClientRect(GetConsoleWindow(), &r);
+        POINT p; GetCursorPos(&p); ScreenToClient(hwndGlobal, &p); // USAR HWND GLOBAL
+        RECT r; GetClientRect(hwndGlobal, &r);
         int clientW = r.right - r.left; int clientH = r.bottom - r.top;
-        int mx = (p.x * 1920) / clientW; int my = (p.y * 1080) / clientH;
+        // Input mapeado a logico 1920x1080 para coincidir con hardcode
+        // Pero mejor usar proporcional
+        
+        float sx = (float)clientW / 1920.0f;
+        float sy = (float)clientH / 1080.0f;
 
+        // Detectar botones escalados
         int botonBajoMouse = 0;
-        if (my >= BTN_Y && my <= BTN_Y + BTN_H) {
-            if (mx >= BTN1_X && mx <= BTN1_X + BTN_W) botonBajoMouse = 1;
-            else if (mx >= BTN2_X && mx <= BTN2_X + BTN_W) botonBajoMouse = 2;
-            else if (mx >= BTN3_X && mx <= BTN3_X + BTN_W) botonBajoMouse = 3;
-        }
+        // Botones Originales: Y=800, W=400, H=250. X=100, 700, 1380
+        if (p.x >= BTN1_X*sx && p.x <= (BTN1_X+BTN_W)*sx && p.y >= BTN_Y*sy && p.y <= (BTN_Y+BTN_H)*sy) botonBajoMouse = 1;
+        else if (p.x >= BTN2_X*sx && p.x <= (BTN2_X+BTN_W)*sx && p.y >= BTN_Y*sy && p.y <= (BTN_Y+BTN_H)*sy) botonBajoMouse = 2;
+        else if (p.x >= BTN3_X*sx && p.x <= (BTN3_X+BTN_W)*sx && p.y >= BTN_Y*sy && p.y <= (BTN_Y+BTN_H)*sy) botonBajoMouse = 3;
 
         if (clicIzquierdo) {
             if (botonBajoMouse > 0) botonPresionado = botonBajoMouse; else botonPresionado = 0;
@@ -250,6 +254,10 @@ void dibujarBatalla(HDC hdc, int ancho, int alto) {
     HBITMAP hFondoAUsar = hMapaBatalla; 
     if (islaActual == 2) hFondoAUsar = hMapaBatalla2; else if (islaActual == 3) hFondoAUsar = hMapaBatalla3;
 
+    // DEFINIR FACTOR DE ESCALA
+    float sx = (float)ancho / 1920.0f;
+    float sy = (float)alto / 1080.0f;
+
     if (hFondoAUsar) {
         BITMAP bm; GetObject(hFondoAUsar, sizeof(BITMAP), &bm); HBITMAP oldBm = (HBITMAP)SelectObject(hdcMem, hFondoAUsar);
         SetStretchBltMode(hdc, HALFTONE); StretchBlt(hdc, 0, 0, ancho, alto, hdcMem, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY);
@@ -262,7 +270,7 @@ void dibujarBatalla(HDC hdc, int ancho, int alto) {
     else if (tropaBatallaSeleccionada == 2) sprJugador = hRetratoSoldado; // Escudero (SoldadoP2)
     else if (tropaBatallaSeleccionada == 3) sprJugador = hRetratoArquero; // Arquero
 
-    dibujarSpriteEnBatalla(hdc, 200 + animJugX, 100, 550, 550, sprJugador);
+    dibujarSpriteEnBatalla(hdc, (200 + animJugX)*sx, 100*sy, 550*sx, 550*sy, sprJugador);
 
     HBITMAP hSpriteEnemigo = hObjRoca; 
     int eneX = 1190; int eneY = 60; int eneW = 240; int eneH = 240; 
@@ -277,10 +285,10 @@ void dibujarBatalla(HDC hdc, int ancho, int alto) {
     else if (tipoEnemigoBatalla == ENE_GUERRERO3) { hSpriteEnemigo = hEnemigoGuerrero3; eneW = 550; eneH = 550; eneX = 1250; eneY = 100; }
     else if (tipoEnemigoBatalla == ENE_SOLDADO3) { hSpriteEnemigo = hEnemigoSoldado3; eneW = 520; eneH = 520; eneX = 1280; eneY = 100; }
 
-    dibujarSpriteEnBatalla(hdc, eneX + animEneX, eneY, eneW, eneH, hSpriteEnemigo); 
+    dibujarSpriteEnBatalla(hdc, (eneX + animEneX)*sx, eneY*sy, eneW*sx, eneH*sy, hSpriteEnemigo); 
 
-    if (faseAnim == 5) dibujarSpriteEnBatalla(hdc, eneX + (eneW/4), eneY + (eneH/4), 300, 300, hChispa1);
-    if (faseAnim == 6) dibujarSpriteEnBatalla(hdc, 200 + 100, 100 + 100, 300, 300, hChispa2);
+    if (faseAnim == 5) dibujarSpriteEnBatalla(hdc, (eneX + (eneW/4))*sx, (eneY + (eneH/4))*sy, 300*sx, 300*sy, hChispa1);
+    if (faseAnim == 6) dibujarSpriteEnBatalla(hdc, (200 + 100)*sx, (100 + 100)*sy, 300*sx, 300*sy, hChispa2);
 
     SetBkMode(hdc, TRANSPARENT);
     HFONT fontTexto = CreateFont(24, 0, 0, 0, FW_BOLD, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, "Arial");
@@ -296,31 +304,36 @@ void dibujarBatalla(HDC hdc, int ancho, int alto) {
 
     int anchoBarraJug = 500; int xBarraJ = 250; int yBarraJ = 70;
     int anchoVerde = (jugVidaMax > 0) ? (jugVida * anchoBarraJug) / jugVidaMax : 0;
-    RECT rFondoJ = {xBarraJ, yBarraJ, xBarraJ + anchoBarraJug, yBarraJ + 25}; FillRect(hdc, &rFondoJ, bGris);
-    RECT rVidaJ = {xBarraJ, yBarraJ, xBarraJ + anchoVerde, yBarraJ + 25}; FillRect(hdc, &rVidaJ, bVerde); FrameRect(hdc, &rFondoJ, bFrame);
+    
+    // ESCALAR BARRA JUGADOR
+    RECT rFondoJ = {xBarraJ*sx, yBarraJ*sy, (xBarraJ + anchoBarraJug)*sx, (yBarraJ + 25)*sy}; FillRect(hdc, &rFondoJ, bGris);
+    RECT rVidaJ = {xBarraJ*sx, yBarraJ*sy, (xBarraJ + anchoVerde)*sx, (yBarraJ + 25)*sy}; FillRect(hdc, &rVidaJ, bVerde); FrameRect(hdc, &rFondoJ, bFrame);
 
     int anchoBarraEne = 400; int xBarraE = 1200; int yBarraE = 70; 
     int anchoRojo = (eneVidaMax > 0) ? (eneVida * anchoBarraEne) / eneVidaMax : 0;
-    RECT rFondoE = {xBarraE, yBarraE, xBarraE + anchoBarraEne, yBarraE + 25}; FillRect(hdc, &rFondoE, bGris);
-    RECT rVidaE = {xBarraE, yBarraE, xBarraE + anchoRojo, yBarraE + 25}; FillRect(hdc, &rVidaE, bRojo); FrameRect(hdc, &rFondoE, bFrame);
+    
+    // ESCALAR BARRA ENEMIGO
+    RECT rFondoE = {xBarraE*sx, yBarraE*sy, (xBarraE + anchoBarraEne)*sx, (yBarraE + 25)*sy}; FillRect(hdc, &rFondoE, bGris);
+    RECT rVidaE = {xBarraE*sx, yBarraE*sy, (xBarraE + anchoRojo)*sx, (yBarraE + 25)*sy}; FillRect(hdc, &rVidaE, bRojo); FrameRect(hdc, &rFondoE, bFrame);
 
     char buffer[50]; SetTextColor(hdc, RGB(255, 255, 255));
-    sprintf(buffer, "%d/%d", jugVida, jugVidaMax); TextOutA(hdc, xBarraJ + 10, yBarraJ + 2, buffer, strlen(buffer));
-    sprintf(buffer, "%d/%d", eneVida, eneVidaMax); TextOutA(hdc, xBarraE + 10, yBarraE + 2, buffer, strlen(buffer)); 
+    sprintf(buffer, "%d/%d", jugVida, jugVidaMax); TextOutA(hdc, (xBarraJ + 10)*sx, (yBarraJ + 2)*sy, buffer, strlen(buffer));
+    sprintf(buffer, "%d/%d", eneVida, eneVidaMax); TextOutA(hdc, (xBarraE + 10)*sx, (yBarraE + 2)*sy, buffer, strlen(buffer)); 
 
-    SelectObject(hdc, fontTitulo); TextOutA(hdc, 250, 30, "GUERRERO", 8);
+    SelectObject(hdc, fontTitulo); TextOutA(hdc, 250*sx, 30*sy, "GUERRERO", 8);
     
     int yNombreEne = 30; 
-    if (tipoEnemigoBatalla == ENE_LOBO) TextOutA(hdc, 1200, yNombreEne, "LOBO", 4);
-    else if (tipoEnemigoBatalla == ENE_CIERVO) TextOutA(hdc, 1200, yNombreEne, "CIERVO", 6);
-    else if (tipoEnemigoBatalla == ENE_ARQUERO2) TextOutA(hdc, 1200, yNombreEne, "ARQUERO ELITE", 13);
-    else if (tipoEnemigoBatalla == ENE_GUERRERO2) TextOutA(hdc, 1200, yNombreEne, "GUERRERO ELITE", 14);
-    else if (tipoEnemigoBatalla == ENE_SOLDADO2) TextOutA(hdc, 1200, yNombreEne, "SOLDADO VET.", 12);
+    int xNombreEne = 1200;
+    if (tipoEnemigoBatalla == ENE_LOBO) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "LOBO", 4);
+    else if (tipoEnemigoBatalla == ENE_CIERVO) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "CIERVO", 6);
+    else if (tipoEnemigoBatalla == ENE_ARQUERO2) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "ARQUERO ELITE", 13);
+    else if (tipoEnemigoBatalla == ENE_GUERRERO2) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "GUERRERO ELITE", 14);
+    else if (tipoEnemigoBatalla == ENE_SOLDADO2) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "SOLDADO VET.", 12);
     // NOMBRES ISLA 3
-    else if (tipoEnemigoBatalla == ENE_ARQUERO3) TextOutA(hdc, 1200, yNombreEne, "ARQUERO VOLCAN", 14);
-    else if (tipoEnemigoBatalla == ENE_GUERRERO3) TextOutA(hdc, 1200, yNombreEne, "GUERRERO VOLCAN", 15);
-    else if (tipoEnemigoBatalla == ENE_SOLDADO3) TextOutA(hdc, 1200, yNombreEne, "SOLDADO VOLCAN", 14);
-    else TextOutA(hdc, 1200, yNombreEne, "ENEMIGO", 7);
+    else if (tipoEnemigoBatalla == ENE_ARQUERO3) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "ARQUERO VOLCAN", 14);
+    else if (tipoEnemigoBatalla == ENE_GUERRERO3) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "GUERRERO VOLCAN", 15);
+    else if (tipoEnemigoBatalla == ENE_SOLDADO3) TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "SOLDADO VOLCAN", 14);
+    else TextOutA(hdc, xNombreEne*sx, yNombreEne*sy, "ENEMIGO", 7);
 
     if (faseBatalla == 0 && faseAnim == 0) {
         HBITMAP b1, b2, b3;
@@ -333,10 +346,10 @@ void dibujarBatalla(HDC hdc, int ancho, int alto) {
         if (botonPresionado == 2) { x2 += 10; y2 += 10; w2 -= 20; h2 -= 20; }
         if (botonPresionado == 3) { x3 += 10; y3 += 10; w3 -= 20; h3 -= 20; }
 
-        dibujarSpriteEnBatalla(hdc, x1, y1, w1, h1, b1); dibujarSpriteEnBatalla(hdc, x2, y2, w2, h2, b2); dibujarSpriteEnBatalla(hdc, x3, y3, w3, h3, b3);
+        dibujarSpriteEnBatalla(hdc, x1*sx, y1*sy, w1*sx, h1*sy, b1); dibujarSpriteEnBatalla(hdc, x2*sx, y2*sy, w2*sx, h2*sy, b2); dibujarSpriteEnBatalla(hdc, x3*sx, y3*sy, w3*sx, h3*sy, b3);
     }
 
-    SetTextColor(hdc, RGB(255, 215, 0)); TextOutA(hdc, 550, 80, mensajeBatalla, strlen(mensajeBatalla));
+    SetTextColor(hdc, RGB(255, 215, 0)); TextOutA(hdc, 550*sx, 80*sy, mensajeBatalla, strlen(mensajeBatalla));
     DeleteObject(bGris); DeleteObject(bVerde); DeleteObject(bRojo); DeleteObject(bFrame); 
     
     SelectObject(hdc, oldFont); 

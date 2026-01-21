@@ -102,19 +102,19 @@ void cargarIsla2() {
 // =========================================================
 //   ISLA 3: VOLCÁN (RÉPLICA EXACTA DE ISLA 2 CON PALMERAS/CARPAS)
 // =========================================================
+// =========================================================
+//   ISLA 3: VOLCÁN (RÉPLICA EXACTA DE ISLA 2 CON PALMERAS/CARPAS)
+// =========================================================
 void cargarIsla3() {
     agregarObjeto(O_BARCO, 150, 200); 
     agregarObjeto(O_MONTANA, 1500, 1500);
     
-    // --- CARPAS (EN LAS MISMAS COORDENADAS QUE LOS IGLÚS) ---
+    // --- CARPAS (Exactamente igual a Isla 2) ---
     agregarObjeto(O_CARPA, 400, 300);
     agregarObjeto(O_CARPA, 600, 400);
     agregarObjeto(O_CARPA, 800, 350);
 
-    // --- PALMERAS (EN LAS MISMAS COORDENADAS QUE LOS ÁRBOLES DE NIEVE) ---
-    // O_ARBOL_NIEVE1 -> O_PALMERA
-    // O_ARBOL_NIEVE2 -> O_PALMERA2
-    
+    // --- PALMERAS (Exactamente igual a Isla 2) ---
     agregarObjeto(O_PALMERA, 250, 500);
     agregarObjeto(O_PALMERA2, 550, 600);
     agregarObjeto(O_PALMERA, 900, 550);
@@ -139,12 +139,12 @@ void cargarIsla4() {
     agregarObjeto(O_BARCO, 150, 200); 
     agregarObjeto(O_MONTANA, 1500, 1500);
 
-    // --- CHOZAS (REEMPLAZAN IGLÚS) ---
+    // --- CHOZAS (Exactamente igual a Isla 2) ---
     agregarObjeto(O_CHOZA3, 400, 300);
     agregarObjeto(O_CHOZA3, 600, 400);
     agregarObjeto(O_CHOZA3, 800, 350);
 
-    // --- ÁRBOLES 10 (REEMPLAZAN ÁRBOLES NIEVE) ---
+    // --- ÁRBOLES 10 (Exactamente igual a Isla 2) ---
     agregarObjeto(O_ARBOL10, 250, 500);
     agregarObjeto(O_ARBOL10, 550, 600);
     agregarObjeto(O_ARBOL10, 900, 550);
@@ -167,10 +167,61 @@ void cargarIsla4() {
 // =========================================================
 void cargarIsla5() {
     agregarObjeto(O_BARCO, 150, 200); 
-    // SOLO BARCO
+    // AGREGAR ENTRADA A LA CUEVA
+    agregarObjeto(O_ENTRADA_CUEVA, 1000, 500); 
+}
+
+// =========================================================
+//   CUEVA (ISLA 6)
+// =========================================================
+void cargarCueva() {
+    // --- ISLA 6: CUEVA DEL DRAGON ---
+    // Colocamos la Calavera del Dragon protegiendo el oro
+    // MAS PROFUNDO: Lejos de la entrada (Spawnea en 400, 800)
+    // Movemos hacia la derecha y arriba.
+    // Skull 600x600. Posicion X=1200, Y=50 (Arriba a la derecha)
+    agregarObjeto(O_CALAVERA, 1200, 50); 
+
+    // El Gran Tesoro (Debajo de la calavera)
+    // Gold 200x200. X=1400 (Centrado bajo skull), Y=550
+    agregarObjeto(O_ORO_GRANDE, 1400, 550);
+    
+    // Rocas bloqueando o decorando el camino
+    agregarObjeto(O_ROCA, 800, 600); 
+    agregarObjeto(O_ROCA, 1000, 300);
+}
+
+extern int generoSeleccionado;
+extern char nombreJugadorGlobal[50];
+extern int estadoGlobal;
+extern int jugOro, jugMadera, jugComida, jugX, jugY; 
+#include "../include/registro.h"
+#include "../include/menu.h" // Para ST_JUEGO_INICIADO
+
+void GuardarPartidaActual() {
+    if (estadoGlobal != ST_JUEGO_INICIADO) return;
+    if (strlen(nombreJugadorGlobal) == 0) return;
+
+    EstadoJuego est;
+    est.magic = 0x4947;
+    strcpy(est.nombre, nombreJugadorGlobal);
+    est.oro = jugOro;
+    est.madera = jugMadera;
+    est.comida = jugComida;
+    est.isla = islaActual;
+    est.x = jugX;
+    est.y = jugY;
+    est.genero = generoSeleccionado;
+
+    GuardarJuego(nombreJugadorGlobal, &est);
 }
 
 void cambiarIsla(int numero) {
+    // AUTO-SAVE al cambiar de isla
+    if (islaActual != numero && estadoGlobal == ST_JUEGO_INICIADO) {
+         GuardarPartidaActual();
+    }
+
     totalObjetos = 0;
     islaActual = numero;
     
@@ -179,6 +230,7 @@ void cambiarIsla(int numero) {
     else if (numero == 3) cargarIsla3();
     else if (numero == 4) cargarIsla4();
     else if (numero == 5) cargarIsla5();
+    else if (numero == 6) cargarCueva(); // CUEVA
 }
 
 void inicializarMundo() {

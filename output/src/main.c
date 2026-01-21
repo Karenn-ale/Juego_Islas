@@ -3,8 +3,16 @@
 #include <math.h>
 #include "../include/juego.h" 
 #include "../include/dibujo.h"
+#include "../include/menu.h"
+#include "../include/registro.h"
 
 // --- VARIABLES GLOBALES ---
+extern char nombreJugadorGlobal[50]; // Definido en menu.c
+extern void GuardarPartidaActual();   // Definido en mapa.c
+
+int estadoGlobal = ST_INICIO; // 0=Menu, 1=Juego (usamos constantes de menu.h)
+HWND hwndGlobal = NULL;
+
 int objTipo[MAX_OBJETOS];
 int objX[MAX_OBJETOS];
 int objY[MAX_OBJETOS];
@@ -38,7 +46,7 @@ int velocidad = 8;
 int direccionJugador = 0; 
 int jugadorEnMovimiento = 0;
 
-int jugOro = 500; int jugMadera = 500; int jugComida = 500;
+int jugOro = 0; int jugMadera = 0; int jugComida = 0;
 
 int tropaGuerrero = 0; int tropaArquero = 0; int tropaLancero = 0; int tropaEscudero = 0;
 
@@ -63,7 +71,8 @@ HBITMAP hEfectoMadera = NULL;
 
 // Recursos Gráficos
 HBITMAP hMapaIsla1, hMapaIsla2, hMapaIsla3;
-HBITMAP hMapaIsla4, hMapaIsla5; // NUEVO
+HBITMAP hMapaIsla4, hMapaIsla5; 
+HBITMAP hMapaCueva; // NUEVO MAPA
 HBITMAP hMapaBatalla, hMapaBatalla2, hMapaBatalla3;
 
 HBITMAP hBtnAtacar1, hBtnHuir1, hBtnCurar1;
@@ -83,6 +92,16 @@ HBITMAP hEnemigoArquero2, hEnemigoGuerrero2, hEnemigoSoldado2;
 HBITMAP hEnemigoArquero3, hEnemigoGuerrero3, hEnemigoSoldado3;
 
 HBITMAP hChispa1, hChispa2;
+HBITMAP hObjItemOro;
+
+// --- GLOBALES ALDEANOS ---
+// Definiciones en recursos.c
+// Aldeano aldeanos[MAX_ALDEANOS]; 
+// int totalAldeanos = 0;
+HBITMAP hAldeanoFrente[2];
+HBITMAP hAldeanoAtras[2];
+HBITMAP hAldeanoLado[2];    
+HBITMAP hAldeanoDerecha[2]; 
 
 HBITMAP hObjArbol, hObjArbol2, hObjArbusto;
 HBITMAP hObjRoca, hObjMontana, hObjCastillo, hObjBarco, hObjPino;
@@ -93,6 +112,8 @@ HBITMAP hObjArbolNieve1, hObjArbolNieve2;
 HBITMAP hObjPalmera, hObjPalmera2, hObjCarpa;
 HBITMAP hObjChoza3 = NULL; // NUEVO
 HBITMAP hObjArbol10 = NULL; // NUEVO
+HBITMAP hObjOroGrande = NULL; // NUEVO: Tesoro Cueva
+HBITMAP hObjCalavera = NULL;  // NUEVO: Dragon Cueva
 
 HBITMAP hMenuInventarioBG;
 HBITMAP hIconoMochila;
@@ -106,7 +127,8 @@ HBITMAP hMapaIsla1Mem = NULL; HDC hdcMapaMem1 = NULL;
 HBITMAP hMapaIsla2Mem = NULL; HDC hdcMapaMem2 = NULL;
 HBITMAP hMapaIsla3Mem = NULL; HDC hdcMapaMem3 = NULL;
 HBITMAP hMapaIsla4Mem = NULL; HDC hdcMapaMem4 = NULL; // NUEVO
-HBITMAP hMapaIsla5Mem = NULL; HDC hdcMapaMem5 = NULL; // NUEVO
+HBITMAP hMapaIsla5Mem = NULL; HDC hdcMapaMem5 = NULL; 
+HBITMAP hMapaCuevaMem = NULL; HDC hdcMapaCuevaMem = NULL; // NUEVO MEM
 
 static inline int clampInt(int v, int lo, int hi) {
     if (v < lo) return lo; if (v > hi) return hi; return v;
@@ -189,12 +211,17 @@ void dibujarEfectos(HDC hdc) {
 }
 // --------------------------------------------------
 
+// --- LOGICA ALDEANOS ---
+// Movido a recursos.c
+// inicializarAldeanos, comprarAldeano, actualizarAldeanos, dibujarAldeanos
+
 void cargarRecursos() {
     hMapaIsla1 = cargarBitmap("assets/isla1.bmp");
     hMapaIsla2 = cargarBitmap("assets/isla2.bmp");
     hMapaIsla3 = cargarBitmap("assets/isla3.bmp");
     hMapaIsla4 = cargarBitmap("assets/isla4.bmp"); // NUEVO
-    hMapaIsla5 = cargarBitmap("assets/isla5.bmp"); // NUEVO 
+    hMapaIsla5 = cargarBitmap("assets/isla5.bmp"); 
+    hMapaCueva = cargarBitmap("assets/cueva.bmp"); // CARGAR CUEVA 
     
     hMapaBatalla  = cargarBitmap("assets/islabatalla.bmp");
     hMapaBatalla2 = cargarBitmap("assets/islabatalla2.bmp");
@@ -238,7 +265,24 @@ void cargarRecursos() {
     hObjCuartel = cargarBitmap("assets/cuartel.bmp"); 
     hObjIglu = cargarBitmap("assets/iglu.bmp"); 
     hObjHoguera = cargarBitmap("assets/hoguera.bmp"); 
+    hChispa1 = cargarBitmap("assets/chispa1.bmp");
+    hChispa2 = cargarBitmap("assets/chispa2.bmp");
     hObjItemOro = cargarBitmap("assets/oro.bmp");
+
+    // CARGAR ALDEANOS
+    // Asumiendo: 1=Frente, 2=Derecha/Lado, 3=Izquierda, 4=Atras (o similar, ajustaremos visualmente)
+    // Grupo 1: Frente
+    hAldeanoFrente[0] = cargarBitmap("assets/aldeano.bmp");
+    hAldeanoFrente[1] = cargarBitmap("assets/aldeano1.1.bmp");
+    // Grupo 2: Derecha
+    hAldeanoDerecha[0] = cargarBitmap("assets/aldeano2.bmp");
+    hAldeanoDerecha[1] = cargarBitmap("assets/aldeano2.2.bmp");
+    // Grupo 3: Izquierda
+    hAldeanoLado[0] = cargarBitmap("assets/aldeano3.bmp");
+    hAldeanoLado[1] = cargarBitmap("assets/aldeano3.3.bmp");
+    // Grupo 4: Atras
+    hAldeanoAtras[0] = cargarBitmap("assets/aldeano4.bmp");
+    hAldeanoAtras[1] = cargarBitmap("assets/aldeano4.4.bmp");
     
     hMenuReclutamiento = cargarBitmap("assets/reclutamiento.bmp");
 
@@ -251,12 +295,14 @@ void cargarRecursos() {
     
     hObjChoza3 = cargarBitmap("assets/choza3.bmp");   // NUEVO
     hObjArbol10 = cargarBitmap("assets/arbol10.bmp"); // NUEVO
+    hObjOroGrande = cargarBitmap("assets/oro2.bmp");  // NUEVO: Tesoro Grande
+    hObjCalavera = cargarBitmap("assets/calavera.bmp"); // NUEVO: Calavera Dragon
 
     hMenuInventarioBG = cargarBitmap("assets/inventario.bmp");
     hIconoMochila     = cargarBitmap("assets/mochila.bmp"); 
     // --- CARGAR CHISPAS ---
-    hChispa1 = cargarBitmap("assets/chispa1.bmp");
-    hChispa2 = cargarBitmap("assets/chispa2.bmp");
+    // hChispa1 = cargarBitmap("assets/chispa1.bmp"); // Already loaded above
+    // hChispa2 = cargarBitmap("assets/chispa2.bmp"); // Already loaded above
 
     if (hMapaIsla1Mem) DeleteObject(hMapaIsla1Mem); hMapaIsla1Mem = cargarBitmap("assets/isla1.bmp");
     if (hdcMapaMem1) DeleteDC(hdcMapaMem1); hdcMapaMem1 = CreateCompatibleDC(NULL); SelectObject(hdcMapaMem1, hMapaIsla1Mem);
@@ -269,6 +315,10 @@ void cargarRecursos() {
     if (hdcMapaMem4) DeleteDC(hdcMapaMem4); hdcMapaMem4 = CreateCompatibleDC(NULL); SelectObject(hdcMapaMem4, hMapaIsla4Mem);
     if (hMapaIsla5Mem) DeleteObject(hMapaIsla5Mem); hMapaIsla5Mem = cargarBitmap("assets/isla5.bmp");
     if (hdcMapaMem5) DeleteDC(hdcMapaMem5); hdcMapaMem5 = CreateCompatibleDC(NULL); SelectObject(hdcMapaMem5, hMapaIsla5Mem);
+    
+    // CUEVA MEM
+    if (hMapaCuevaMem) DeleteObject(hMapaCuevaMem); hMapaCuevaMem = cargarBitmap("assets/cueva.bmp");
+    if (hdcMapaCuevaMem) DeleteDC(hdcMapaCuevaMem); hdcMapaCuevaMem = CreateCompatibleDC(NULL); SelectObject(hdcMapaCuevaMem, hMapaCuevaMem);
     
     hGuerreroFrente[0] = cargarBitmap("assets/gf1.bmp"); hGuerreroFrente[1] = cargarBitmap("assets/gf2.bmp");
     hGuerreroAtras[0] = cargarBitmap("assets/ga1.bmp"); hGuerreroAtras[1] = cargarBitmap("assets/ga2.bmp");
@@ -447,6 +497,9 @@ void dibujarMenuCuartel(HDC hdc) {
 
     if(tropaSeleccionada == 4) SetTextColor(hdc, RGB(0, 255, 0)); else SetTextColor(hdc, RGB(255, 255, 255));
     TextOutA(hdc, panelTextoX + 30, yOpc + salto*3, "[4] Escudero (80 Oro, 40 Comida)", 30);
+    
+    if(tropaSeleccionada == 5) SetTextColor(hdc, RGB(0, 255, 0)); else SetTextColor(hdc, RGB(255, 255, 255));
+    TextOutA(hdc, panelTextoX + 30, yOpc + salto*4, "[5] Aldeano (50 Oro) - Recolector", 36);
 
     SetTextColor(hdc, RGB(150, 150, 255)); 
     sprintf(buffer, "EJERCITO ACTUAL:");
@@ -560,7 +613,7 @@ int hayColisionConObjeto(int futuroX, int futuroY) {
         int tipo = objTipo[i];
         if (tipo == O_NADA || tipo == O_ARBUSTO) continue; 
         
-        if (tipo == O_COMERCIANTE || tipo == O_CUARTEL || tipo == O_IGLU || tipo == O_CARPA || tipo == O_CASTILLO || tipo == O_BARCO || tipo == O_HOGUERA || tipo == O_CHOZA3) {
+        if (tipo == O_COMERCIANTE || tipo == O_CUARTEL || tipo == O_IGLU || tipo == O_CARPA || tipo == O_CASTILLO || tipo == O_BARCO || tipo == O_HOGUERA || tipo == O_CHOZA3 || tipo == O_CALAVERA) {
              int cx = objX[i] + 40; int cy = objY[i] + 40;
              int radio = 30; 
              if (tipo == O_IGLU || tipo == O_CARPA || tipo == O_CHOZA3) radio = 50; 
@@ -568,8 +621,15 @@ int hayColisionConObjeto(int futuroX, int futuroY) {
              if (tipo == O_HOGUERA) radio = 40; 
              if (tipo == O_CASTILLO) { cx += 80; cy += 80; radio = 100; }
              if (tipo == O_CUARTEL) { cx += 30; cy += 30; radio = 70; }
+             if (tipo == O_CALAVERA) { cx += 300; cy += 300; radio = 200; } // Radio ajustado para 600x600
 
              if ((long long)(futuroX-cx)*(futuroX-cx) + (long long)(futuroY-cy)*(futuroY-cy) < (radio*radio)) return 1;
+             continue;
+        }
+
+        // CUEVA TEST (ENTRADA SOLO) - Puedes caminar sobre ella pero sirve para detectar cercania luego
+        if (tipo == O_ENTRADA_CUEVA) {
+             // Dejamos que camine sobre ella.
              continue;
         }
 
@@ -595,8 +655,9 @@ int esTerrenoPermitido(int x, int y) {
     if (islaActual == 1) hdcUsar = hdcMapaMem1; 
     else if (islaActual == 2) hdcUsar = hdcMapaMem2; 
     else if (islaActual == 3) hdcUsar = hdcMapaMem3;
-    else if (islaActual == 4) hdcUsar = hdcMapaMem4; // NUEVO
-    else if (islaActual == 5) hdcUsar = hdcMapaMem5; // NUEVO
+    else if (islaActual == 4) hdcUsar = hdcMapaMem4; 
+    else if (islaActual == 5) hdcUsar = hdcMapaMem5; 
+    else if (islaActual == 6) hdcUsar = hdcMapaCuevaMem; // CUEVA MEM
 
     if (!hdcUsar) return 1; 
     int maxX = anchoMapaReal > 0 ? anchoMapaReal : ANCHO_MUNDO; int maxY = altoMapaReal > 0 ? altoMapaReal : ALTO_MUNDO;
@@ -609,18 +670,18 @@ int esTerrenoPermitido(int x, int y) {
     if (islaActual == 2) return (r > 130 && g > 130 && b > 130) || (b > 200 && r > 150 && g > 150) || esArena;
     if (islaActual == 3) return ((r < 140 && g < 140 && b < 140) || (r > 60 && r > b && g < r + 50) || esArena) && !(b > r + 30 && b > g + 30 && b > 80);
     
-    // ISLA 4 y 5: Logica generica (Permitir casi todo menos agua azul pura)
+    // ISLA 4, 5 y 6: Logica generica 
     // Asumimos que agua es B > R+20 y B > G+20
-    if (islaActual == 4 || islaActual == 5) {
+    if (islaActual == 4 || islaActual == 5 || islaActual == 6) {
         if (b > r + 30 && b > g + 30 && b > 100) return 0; // Agua
-        return 1; // Resto camnable
+        return 1; // Resto camnable (en cueva se asume suelo oscuro, no azul)
     }
     return 0;
 }
 
 void actualizarMouse() {
     objetoBajoMouse = -1; 
-    POINT p; HWND hwnd = GetConsoleWindow();
+    POINT p; HWND hwnd = hwndGlobal; // GetConsoleWindow(); REPLACED
     if (GetCursorPos(&p)) {
         ScreenToClient(hwnd, &p);
         RECT rv; GetClientRect(hwnd, &rv);
@@ -678,6 +739,30 @@ void procesarEntradaContinua() {
     }
 
     if (GetAsyncKeyState('E') & 0x8000) { intentarRecolectar(jugX, jugY); Sleep(200); }
+    
+    // DETECTAR ENTRADA A LA CUEVA (Isla 5 + Tecla T)
+    if (islaActual == 5) {
+        for(int i=0; i<totalObjetos; i++) {
+             if(objTipo[i] == O_ENTRADA_CUEVA) {
+                 int cx = objX[i] + 40; int cy = objY[i] + 40; // Centro aprox
+                 if (abs(jugX - cx) < 100 && abs(jugY - cy) < 100) {
+                     if (GetAsyncKeyState('T') & 0x8000) {
+                         cambiarIsla(6); // ENTRAR CUEVA
+                         jugX = 400; jugY = 800; // Posicion inicial dentro
+                         Sleep(200);
+                     }
+                 }
+             }
+        }
+    }
+    // SALIR DE CUEVA (Isla 6 + Tecla T) - Opcional, para no quedar atrapado
+    if (islaActual == 6) {
+        if (GetAsyncKeyState('T') & 0x8000) {
+             cambiarIsla(5); 
+             jugX = 1000; jugY = 550; // Al lado de la entrada
+             Sleep(200);
+        }
+    }
 
     if (menuCuartelActivo) {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { menuCuartelActivo = 0; Sleep(200); }
@@ -685,9 +770,10 @@ void procesarEntradaContinua() {
         if (GetAsyncKeyState('2') & 0x8000) tropaSeleccionada = 2; 
         if (GetAsyncKeyState('3') & 0x8000) tropaSeleccionada = 3; 
         if (GetAsyncKeyState('4') & 0x8000) tropaSeleccionada = 4; 
+        if (GetAsyncKeyState('5') & 0x8000) tropaSeleccionada = 5; 
         if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
-            POINT p; GetCursorPos(&p); ScreenToClient(GetConsoleWindow(), &p);
-            RECT r; GetClientRect(GetConsoleWindow(), &r);
+            POINT p; GetCursorPos(&p); ScreenToClient(hwndGlobal, &p);
+            RECT r; GetClientRect(hwndGlobal, &r);
             int clientW = r.right - r.left; int clientH = r.bottom - r.top;
             if (clientW>0 && clientH>0) {
                 int mx = (p.x * pantallaAnchoPx) / clientW;
@@ -700,6 +786,7 @@ void procesarEntradaContinua() {
                     if (my >= yOpc + salto && my < yOpc + salto*2) tropaSeleccionada = 2;
                     if (my >= yOpc + salto*2 && my < yOpc + salto*3) tropaSeleccionada = 3;
                     if (my >= yOpc + salto*3 && my < yOpc + salto*4) tropaSeleccionada = 4;
+                    if (my >= yOpc + salto*4 && my < yOpc + salto*5) tropaSeleccionada = 5;
                 }
                 int btnW = 180, btnH = 60; int btnComprarX = panelTextoX + 40; int btnComprarY = startY + altoImg - 80; int btnCerrarX  = panelTextoX + 280;
                 if (mx >= btnComprarX && mx <= btnComprarX+btnW && my >= btnComprarY && my <= btnComprarY+btnH) {
@@ -707,6 +794,7 @@ void procesarEntradaContinua() {
                     else if (tropaSeleccionada == 2 && jugOro >= 40 && jugMadera >= 30 && jugComida >= 10) { jugOro-=40; jugMadera-=30; jugComida-=10; tropaArquero++; }
                     else if (tropaSeleccionada == 3 && jugOro >= 30 && jugMadera >= 50 && jugComida >= 20) { jugOro-=30; jugMadera-=50; jugComida-=20; tropaLancero++; }
                     else if (tropaSeleccionada == 4 && jugOro >= 80 && jugComida >= 40) { jugOro-=80; jugComida-=40; tropaEscudero++; }
+                    else if (tropaSeleccionada == 5 && jugOro >= 50) { comprarAldeano(); } // Funcion externa
                     Sleep(200); 
                 }
                 if (mx >= btnCerrarX && mx <= btnCerrarX+btnW && my >= btnComprarY && my <= btnComprarY+btnH) { menuCuartelActivo = 0; Sleep(200); }
@@ -718,8 +806,8 @@ void procesarEntradaContinua() {
     // --- LOGICA MENU SELECCION TROPA ---
     if (menuSeleccionTropaActivo) {
         if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
-            POINT p; GetCursorPos(&p); ScreenToClient(GetConsoleWindow(), &p);
-            RECT r; GetClientRect(GetConsoleWindow(), &r);
+            POINT p; GetCursorPos(&p); ScreenToClient(hwndGlobal, &p);
+            RECT r; GetClientRect(hwndGlobal, &r);
             int clientW = r.right - r.left; int clientH = r.bottom - r.top;
             if (clientW>0 && clientH>0) {
                 int mx = (p.x * 1920) / clientW; 
@@ -900,6 +988,25 @@ void procesarEntradaContinua() {
                          continue;
                      }
                 }
+
+                // --- 4. RECOGER GRAN TESORO (CUEVA) ---
+                if (objTipo[i] == O_ORO_GRANDE) {
+                     if (objVisible[i] == 0) continue;
+                     int cx = objX[i] + 100; // Centro de 200x200
+                     int cy = objY[i] + 100;
+                     if (abs(jugX+20 - cx) < 120 && abs(jugY+20 - cy) < 120) { // Rango pickup mayor
+                         jugOro += 2000; // RECOMPENSA GRANDE
+                         objVisible[i] = 0; 
+                         objTipo[i] = O_NADA; 
+                         
+                         // Efecto visual masivo? 
+                         agregarEfectoVisual(EFECTO_ORO, cx, cy);
+                         agregarEfectoVisual(EFECTO_ORO, cx+10, cy+10);
+                         agregarEfectoVisual(EFECTO_ORO, cx-10, cy-10);
+
+                         continue;
+                     }
+                }
             }
         }
     }
@@ -919,7 +1026,8 @@ static void computeCamera(int jugXlocal, int jugYlocal, int* outCamX, int* outCa
 
 
 void renderizar() {
-    HWND hwnd = GetConsoleWindow(); HDC hdc = GetDC(hwnd); if (!hdc) return;
+    HWND hwnd = hwndGlobal; // GetConsoleWindow(); REPLACED
+    HDC hdc = GetDC(hwnd); if (!hdc) return;
     HDC hdcMem = CreateCompatibleDC(hdc); HBITMAP hbmMem = CreateCompatibleBitmap(hdc, pantallaAnchoPx, pantallaAltoPx);
     HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMem, hbmMem);
 
@@ -929,9 +1037,26 @@ void renderizar() {
         HBITMAP hMapaActual = hMapaIsla1; 
         if (islaActual == 2) hMapaActual = hMapaIsla2; 
         else if (islaActual == 3) hMapaActual = hMapaIsla3; 
-        else if (islaActual == 4) hMapaActual = hMapaIsla4; // NUEVO
-        else if (islaActual == 5) hMapaActual = hMapaIsla5; // NUEVO 
-        if (hMapaActual) { SetStretchBltMode(hdcMem, HALFTONE); HDC hdcMapa = CreateCompatibleDC(hdc); HBITMAP oldMapa = (HBITMAP)SelectObject(hdcMapa, hMapaActual); StretchBlt(hdcMem, 0, 0, pantallaAnchoPx, pantallaAltoPx, hdcMapa, camaraX, camaraY, pantallaAnchoPx/zoomNivel, pantallaAltoPx/zoomNivel, SRCCOPY); SelectObject(hdcMapa, oldMapa); DeleteDC(hdcMapa); }
+        else if (islaActual == 4) hMapaActual = hMapaIsla4; 
+        else if (islaActual == 5) hMapaActual = hMapaIsla5; 
+        else if (islaActual == 6) hMapaActual = hMapaCueva; // CUEVA 
+        if (hMapaActual) { 
+             SetStretchBltMode(hdcMem, HALFTONE); 
+             HDC hdcMapa = CreateCompatibleDC(hdc); 
+             HBITMAP oldMapa = (HBITMAP)SelectObject(hdcMapa, hMapaActual); 
+             
+             BITMAP bmMap; GetObject(hMapaActual, sizeof(BITMAP), &bmMap);
+             
+             if (bmMap.bmWidth < pantallaAnchoPx) {
+                 // MAPA PEQUEÑO (Thumbnails?): Estirar a toda la pantalla
+                 // Ignoramos camara para el fondo, asumimos que el mapa ES el nivel
+                 StretchBlt(hdcMem, 0, 0, pantallaAnchoPx, pantallaAltoPx, hdcMapa, 0, 0, bmMap.bmWidth, bmMap.bmHeight, SRCCOPY);
+             } else {
+                 // MAPA HD: Comportamiento normal con camara
+                 StretchBlt(hdcMem, 0, 0, pantallaAnchoPx, pantallaAltoPx, hdcMapa, camaraX, camaraY, pantallaAnchoPx/zoomNivel, pantallaAltoPx/zoomNivel, SRCCOPY); 
+             }
+             SelectObject(hdcMapa, oldMapa); DeleteDC(hdcMapa); 
+        }
 
         for(int i=0; i<totalObjetos; i++) {
             if (objVisible[i] == 0) continue; 
@@ -955,8 +1080,24 @@ void renderizar() {
             else if (objTipo[i] == O_PALMERA2) { spr = hObjPalmera2; tamRealW = 120 * zoomNivel; tamRealH = 200 * zoomNivel; }
             else if (objTipo[i] == O_CARPA) { spr = hObjCarpa; t = 150*zoomNivel; } 
             else if (objTipo[i] == O_ITEM_ORO) { spr = hObjItemOro; t = 50*zoomNivel; } // Nuevo
-            else if (objTipo[i] == O_CHOZA3) { spr = hObjChoza3; t = 150*zoomNivel; } // Nuevo
-            else if (objTipo[i] == O_ARBOL10) { spr = hObjArbol10; tamRealW = 120 * zoomNivel; tamRealH = 200 * zoomNivel; } // Nuevo
+            else if (objTipo[i] == O_CHOZA3) { spr = hObjChoza3; t = 150*zoomNivel; } 
+            else if (objTipo[i] == O_ARBOL10) { spr = hObjArbol10; tamRealW = 120 * zoomNivel; tamRealH = 200 * zoomNivel; } 
+            else if (objTipo[i] == O_ENTRADA_CUEVA) { 
+                 // Usamos Montana como visual de cueva, o lo que quieras
+                 spr = hObjMontana; t = 150*zoomNivel; 
+                 // DIBUJAR TEXTO SI ESTA CERCA (SOLO ISLA 5)
+                 if (islaActual == 5 && abs(jugX - objX[i]) < 150 && abs(jugY - objY[i]) < 150) {
+                     HFONT hFont = CreateFont(24,0,0,0,FW_BOLD,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Arial");
+                     HFONT oldF = (HFONT)SelectObject(hdcMem, hFont);
+                     SetTextColor(hdcMem, RGB(255, 255, 0));
+                     SetBkMode(hdcMem, TRANSPARENT);
+                     char* msg = "Presiona letra T para entrar a la cueva";
+                     TextOutA(hdcMem, sx - 50, sy - 30, msg, strlen(msg));
+                     SelectObject(hdcMem, oldF); DeleteObject(hFont);
+                 }
+            }
+            else if (objTipo[i] == O_ORO_GRANDE) { spr = hObjOroGrande; t = 200*zoomNivel; } 
+            else if (objTipo[i] == O_CALAVERA)   { spr = hObjCalavera; tamRealW=600*zoomNivel; tamRealH=600*zoomNivel; }
 
             if (spr) { if (tamRealW > 0) dibujar(hdcMem, sx, sy, spr, tamRealW, tamRealH); else dibujar(hdcMem, sx, sy, spr, t, t); }
             if (i == objetoBajoMouse) { int anchoBorde = (tamRealW > 0 ? tamRealW : t); int altoBorde = (tamRealH > 0 ? tamRealH : t); HBRUSH brushNulo = (HBRUSH)GetStockObject(NULL_BRUSH); HPEN penAmarillo = CreatePen(PS_SOLID, 4, RGB(255, 215, 0)); HGDIOBJ oldBrush = SelectObject(hdcMem, brushNulo); HGDIOBJ oldPen = SelectObject(hdcMem, penAmarillo); Rectangle(hdcMem, sx, sy, sx + anchoBorde, sy + altoBorde); SelectObject(hdcMem, oldBrush); SelectObject(hdcMem, oldPen); DeleteObject(penAmarillo); }
@@ -988,6 +1129,8 @@ void renderizar() {
         if (direccionJugador == 0) sprJ = hGuerreroFrente[frame]; else if (direccionJugador == 1) sprJ = hGuerreroAtras[frame]; else if (direccionJugador == 3) sprJ = hGuerreroLado[frame]; else if (direccionJugador == 2) sprJ = hGuerreroDerecha[frame];
         dibujar(hdcMem, jx, jy, sprJ, 40*zoomNivel, 40*zoomNivel);
 
+        dibujarAldeanos(hdcMem, camaraX, camaraY, zoomNivel); // NUEVO
+
         // --- UI FIJA (MOCHILA GIGANTE 120x120) ---
         dibujar(hdcMem, 20, 20, hIconoMochila, 120, 120);
 
@@ -1002,29 +1145,191 @@ void renderizar() {
         else if (menuCuartelActivo) dibujarMenuCuartel(hdcMem);
         else if (menuInventarioActivo) dibujarInventario(hdcMem);
     }
+    // --- DEBUG INFO OVERLAY ---
+    HFONT hFontDebug = CreateFont(20,0,0,0,FW_BOLD,0,0,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Courier New");
+    HFONT oldFD = (HFONT)SelectObject(hdcMem, hFontDebug);
+    SetTextColor(hdcMem, RGB(0, 255, 0)); SetBkMode(hdcMem, TRANSPARENT);
+    
+    char debugMsg[256];
+    sprintf(debugMsg, "Pantalla: %dx%d | Zoom: %d | Isla: %d", pantallaAnchoPx, pantallaAltoPx, zoomNivel, islaActual);
+    TextOutA(hdcMem, 10, 10, debugMsg, strlen(debugMsg));
+    
+    sprintf(debugMsg, "Camara: %d,%d | Jug: %d,%d", camaraX, camaraY, jugX, jugY);
+    TextOutA(hdcMem, 10, 30, debugMsg, strlen(debugMsg));
+
+    SelectObject(hdcMem, oldFD); DeleteObject(hFontDebug);
+
     BitBlt(hdc, 0, 0, pantallaAnchoPx, pantallaAltoPx, hdcMem, 0, 0, SRCCOPY);
     SelectObject(hdcMem, hbmOld); DeleteObject(hbmMem); DeleteDC(hdcMem); ReleaseDC(hwnd, hdc);
 }
 
-void configurarVentana() { /* ... IGUAL ... */ 
-    HWND hwnd = GetConsoleWindow(); pantallaAnchoPx = 1920; pantallaAltoPx = 1080;
-    SetWindowLong(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE); SetWindowPos(hwnd, HWND_TOP, 0, 0, pantallaAnchoPx, pantallaAltoPx, SWP_FRAMECHANGED | SWP_SHOWWINDOW); ShowWindow(hwnd, SW_MAXIMIZE);
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE); COORD bufferSize = { (SHORT)(pantallaAnchoPx/8), (SHORT)(pantallaAltoPx/16) }; SetConsoleScreenBufferSize(hOut, bufferSize);
-    hInput = GetStdHandle(STD_INPUT_HANDLE); DWORD mode; GetConsoleMode(hInput, &mode); SetConsoleMode(hInput, mode | ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS);
+void configurarVentana() {
+    WNDCLASS wc = {0}; wc.lpfnWndProc = DefWindowProc; wc.hInstance = GetModuleHandle(NULL); wc.lpszClassName = "GuerraIslaApp";
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW); RegisterClass(&wc);
+    hwndGlobal = CreateWindow("GuerraIslaApp", "Islas en Guerra", WS_POPUP | WS_VISIBLE, 0, 0, pantallaAnchoPx, pantallaAltoPx, NULL, NULL, GetModuleHandle(NULL), NULL);
+    ShowWindow(hwndGlobal, SW_MAXIMIZE);
+    
+    // Configurar consola para LOGS si fuera necesario, pero la ventana grafica es la principal ahora
+    // Si queremos mantener compatibilidad con codigo viejo que usa GetConsoleWindow:
+    // No podemos "falsificar" GetConsoleWindow facilmente si es GUI app pura.
+    // Sin embargo, podemos redirigir STDOUT si queremos debug.
+    // Por ahora, el codigo grafico usa GetConsoleWindow() en funciones viejas.
+    // MODIFICACION CRITICA: Las funciones viejas usan GetConsoleWindow()... 
+    // Como estamos pasando a WinMain, NO hay consola por defecto. 
+    // Debemos reemplazar GetConsoleWindow() por hwndGlobal en todo el codigo viejo.
+    // O... crear una consola alloc.
+    AllocConsole();
+    // Reemplazamos GetConsoleWindow() con nuestra ventana grafica creada? 
+    // Mejor hacemos que las funciones usen una variable global 'hwndGlobal'.
 }
 
-int main() {
-    srand(time(NULL)); configurarVentana(); cargarRecursos(); inicializarMundo(); inicializarRecursos();
-    int run = 1; INPUT_RECORD ir[128]; DWORD nRead;
-    while(run) {
-        procesarEntradaContinua(); renderizar(); Sleep(16);
-        DWORD nEvents = 0; GetNumberOfConsoleInputEvents(hInput, &nEvents);
-        if (nEvents > 0) { ReadConsoleInput(hInput, ir, 128, &nRead);
-            for (DWORD i = 0; i < nRead; i++) {
-                if (ir[i].EventType == KEY_EVENT && ir[i].Event.KeyEvent.bKeyDown) { char k = ir[i].Event.KeyEvent.uChar.AsciiChar; if (k == 'x' || k == 'X') run = 0; if (k == '+') { if(zoomNivel < 5) zoomNivel++; } if (k == '-') { if(zoomNivel > 1) zoomNivel--; } }
-                else if (ir[i].EventType == MOUSE_EVENT) { if (ir[i].Event.MouseEvent.dwEventFlags & MOUSE_WHEELED) { if ((int)ir[i].Event.MouseEvent.dwButtonState > 0) { if(zoomNivel < 5) zoomNivel++; } else { if(zoomNivel > 1) zoomNivel--; } } }
+LRESULT CALLBACK WindowProcJuego(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    // Si estamos en MENU, pasar eventos al menu
+    if (estadoGlobal != ST_JUEGO_INICIADO) {
+        if (ProcesarInputMenu(hwnd, uMsg, wParam, lParam)) {
+            // Si el menu dice que cambiemos de estado:
+// ...
+            if (estadoMenuActual == ST_JUEGO_INICIADO) {
+                 estadoGlobal = ST_JUEGO_INICIADO;
+                 // REINICIAR o CARGAR
+                 // Si menu.c ya cargo los datos (BTN_CARGAR), no debemos reiniciar todo a 0.
+                 // inicializarMundo() llama a cambiarIsla(1).
+                 // Si cargamos partida, islaActual ya tiene el valor correcto.
+                 
+                 // Solo reiniciamos si es NUEVA partida (podemos deducirlo si jugOro == 0 y islaActual == 1 y user es nuevo... o flag?)
+                 // Mejor: Si venimos de BTN_NUEVA (usuario nuevo o registrado pero nueva partida).
+                 // Pero menu.c no expone que boton se apreto.
+                 // Sin embargo, si venimos de CARGAR, las variables globales ya tienen valores.
+                 // Si venimos de NUEVA, deberan tener valores default.
+                 
+                 // inicializarMundo -> cambiarIsla(1) -> Resetea objetos.
+                 // cambiarIsla(islaActual) es seguro siempre que islaActual este seteado.
+                 
+                 // TRUCO: if (islaActual == 0) -> Nueva partida.
+                 // En registro.c defaults isla=1. 
+                 // Asumamos que si cargamos, islaActual >= 1.
+                 // En main.c init islaActual = 1.
+                 
+                 // Vamos a confiar en lo que hizo menu.c. 
+                 // Simplemente llamamos a cambiarIsla(islaActual) para cargar los graficos de esa isla.
+                 // PERO: cambiarIsla(num) resetea totalObjetos=0 y carga los objetos mapa base.
+                 // ESO ESTA BIEN. La posicion del jugador se mantiene.
+                 // Lo unico que perdemos es el estado de objetos recolectados (arboles talados).
+                 // El sistema de guardado actual NO guarda el estado de cada arbol. (Solo recursos y posicion).
+                 // Asi que cargar el mapa base es correcto.
+                 
+                 cambiarIsla(islaActual); 
+                 
+                 // NO resetear posicion hardcodeada si ya tiene valor valido
+                 if (jugX == 0 && jugY == 0) { jugX = 400; jugY = 400; }
             }
+            return 0;
+        }
+    } else {
+        // Eventos JUEGO
+        if (uMsg == WM_KEYDOWN) {
+             if (wParam == 'X' || wParam == 'x') PostQuitMessage(0); // REMOVED VK_ESCAPE
+             if (wParam == VK_ADD || wParam == 0xBB) { // + key
+                 if(zoomNivel < 5) zoomNivel++;
+             }
+             if (wParam == VK_SUBTRACT || wParam == 0xBD) { // - key
+                 if(zoomNivel > 1) zoomNivel--;
+             }
+        }
+        else if (uMsg == WM_MOUSEWHEEL) {
+             int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+             if (zDelta > 0) { if(zoomNivel < 5) zoomNivel++; }
+             else { if(zoomNivel > 1) zoomNivel--; }
         }
     }
+    
+    switch (uMsg) {
+        case WM_DESTROY: 
+            if (estadoGlobal == ST_JUEGO_INICIADO) GuardarPartidaActual(); 
+            PostQuitMessage(0); return 0;
+        case WM_ERASEBKGND: return 1; // Evitar parpadeo
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+int WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR lpCmd, int nShow) {
+    // DETECTAR RESOLUCION REAL PANTALLA
+    pantallaAnchoPx = GetSystemMetrics(SM_CXSCREEN);
+    pantallaAltoPx = GetSystemMetrics(SM_CYSCREEN);
+
+    WNDCLASS wc = {0};
+    wc.lpfnWndProc = WindowProcJuego;
+    wc.hInstance = hInst;
+    wc.lpszClassName = "JuegoClase";
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    RegisterClass(&wc);
+
+    hwndGlobal = CreateWindow("JuegoClase", "JUEGO JUAN Y KAREN", WS_POPUP | WS_VISIBLE, 0, 0, pantallaAnchoPx, pantallaAltoPx, NULL, NULL, hInst, NULL);
+    ShowWindow(hwndGlobal, SW_MAXIMIZE);
+    UpdateWindow(hwndGlobal);
+    SetFocus(hwndGlobal); // ASEGURAR FOCO PARA INPUT
+
+    // Inicializar
+    srand(time(NULL));
+    AllocConsole(); // Para el input viejo si se requiere, aunque lo ideal es migrar
+    hInput = GetStdHandle(STD_INPUT_HANDLE); 
+    // Necesitamos habilitar mouse en consola si usamos logica consola?
+    // PERO ahora tenemos Ventana Grafica. GetAsyncKeyState funciona global.
+    // El problema es el Mouse. funciones 'actualizarMouse' usan GetCursorPos y ScreenToClient(GetConsoleWindow())
+    // Debemos cambiar GetConsoleWindow() por hwndGlobal.
+    
+    // Modifiquemos renderizar para usar hwndGlobal internamente o pasar hdc.
+    // CREAR CARPTEA SAVES SI NO EXISTE
+    CreateDirectory("saves", NULL);
+
+    InicializarMenuRecursos(); // MENU
+    cargarRecursos();          // JUEGO
+    inicializarMundo();        // JUEGO
+    inicializarRecursos();     // JUEGO (batalla, etc)
+
+    MSG msg;
+    int run = 1;
+
+    while (run) {
+        // Procesa mensajes de ventana (Menu input y general quit)
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) run = 0;
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
+        if (!run) break;
+
+        HDC hdc = GetDC(hwndGlobal);
+
+        if (estadoGlobal != ST_JUEGO_INICIADO) {
+            // RENDER MENU
+            RECT rc; GetClientRect(hwndGlobal, &rc);
+            RenderizarMenu(hdc, rc.right - rc.left, rc.bottom - rc.top);
+        } else {
+            // LOGICA JUEGO (Del main anterior)
+            procesarEntradaContinua(); // Usa GetAsyncKeyState, funciona.
+            actualizarAldeanos(); // NUEVO: Logic Aldeanos
+            
+            // RENDERS
+            // renderizar() original crea su propio DC y BitBlt.
+            // Necesitamos pasarle el HDC o que use hwndGlobal.
+            // Modifiquemos renderizar para usar hwndGlobal internamente o pasar hdc.
+            // Por simplicidad, llamamos a una version modificada o dejamos que renderizar obtenga DC.
+            // PROBLEMA: renderizar() llama a GetConsoleWindow().
+            
+            // FIX RAPIDO: renderizar() obtiene DC de GetConsoleWindow(). 
+            // Si GetConsoleWindow devuelve la ventana consola (oculta o atras), dibujara mal.
+            // SOLUCION: En renderizar(), reemplazar GetConsoleWindow con hwndGlobal.
+            // Para eso haremos un replace tool despues.
+            
+            // Por ahora, asumimos que renderizar() sera parcheado.
+            renderizar(); 
+        }
+        
+        ReleaseDC(hwndGlobal, hdc);
+        Sleep(16);
+    }
+
     return 0;
 }
